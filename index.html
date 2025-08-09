@@ -102,14 +102,15 @@
   /* Responsividade */
   @media (max-width: 768px) {
     .floating-compliment {
-      font-size: 2rem;
-      text-shadow: none;
+      font-size: 2.5rem;
     }
     .rotating-photo {
-      width: 120px;
-      height: 160px;
+      width: 140px;
+      height: 182px;
       border-radius: 12px;
-      box-shadow: none;
+      box-shadow:
+        0 0 20px rgba(0, 200, 255, 0.5),
+        inset 0 0 12px rgba(0, 100, 180, 0.4);
     }
     #start-screen {
       font-size: 2rem;
@@ -119,14 +120,15 @@
 
   @media (max-width: 400px) {
     .floating-compliment {
-      font-size: 1.5rem;
-      text-shadow: none;
+      font-size: 1.8rem;
     }
     .rotating-photo {
-      width: 90px;
-      height: 115px;
+      width: 110px;
+      height: 143px;
       border-radius: 10px;
-      box-shadow: none;
+      box-shadow:
+        0 0 15px rgba(0, 200, 255, 0.4),
+        inset 0 0 8px rgba(0, 100, 180, 0.3);
     }
     #start-screen {
       font-size: 1.5rem;
@@ -152,10 +154,6 @@
   const bg = document.getElementById('backgroundNebulosa');
   let width, height;
   let animationActive = false;
-
-  function isMobile() {
-    return window.innerWidth <= 768;
-  }
 
   function resize() {
     width = window.innerWidth;
@@ -203,10 +201,7 @@
     stars.length = 0;
     bigStars.length = 0;
 
-    const starCount = isMobile() ? 80 : 150;
-    const bigStarCount = isMobile() ? 15 : 30;
-
-    for(let i=0; i<starCount; i++) {
+    for(let i=0; i<150; i++) {
       stars.push(new Star(
         Math.random() * width,
         Math.random() * height,
@@ -216,7 +211,7 @@
         false
       ));
     }
-    for(let i=0; i<bigStarCount; i++) {
+    for(let i=0; i<30; i++) {
       bigStars.push(new Star(
         Math.random() * width,
         Math.random() * height,
@@ -229,21 +224,14 @@
   }
   createStars();
 
-  let lastStarUpdate = 0;
-  const starUpdateInterval = isMobile() ? 1000 / 30 : 1000 / 60; // 30fps no mobile, 60fps desktop
-
-  function animateStars(time = 0) {
+  function animateStars() {
     if(!animationActive) return;
-
-    if(time - lastStarUpdate > starUpdateInterval) {
-      ctx.clearRect(0, 0, width, height);
-      stars.forEach(s => s.draw(ctx));
-      bigStars.forEach(s => {
-        s.update();
-        s.draw(ctx);
-      });
-      lastStarUpdate = time;
-    }
+    ctx.clearRect(0, 0, width, height);
+    stars.forEach(s => s.draw(ctx));
+    bigStars.forEach(s => {
+      s.update();
+      s.draw(ctx);
+    });
     requestAnimationFrame(animateStars);
   }
 
@@ -332,14 +320,14 @@
     requestAnimationFrame(animateCompliment);
   }
 
-  // Fotos flutuantes e rotativas
+  let complimentsInterval;
 
+  // Fotos para rotacionar e flutuar
   const photos = [
-    'https://i.imgur.com/nDYcGDN.jpg',
-    'https://i.imgur.com/K7OWCw0.jpg',
-    'https://i.imgur.com/7n1a3zz.jpg',
-    'https://i.imgur.com/tCz7dbL.jpg',
-    'https://i.imgur.com/kjO6lhD.jpg'
+    "ft 1.jpeg",
+    "ft 2.jpeg",
+    "ft 3.jpeg",
+    "ft 4.jpeg"
   ];
 
   class FloatingRotatingPhoto {
@@ -349,32 +337,50 @@
       this.img = document.createElement('img');
       this.img.src = src;
       this.el.appendChild(this.img);
+      document.body.appendChild(this.el);
 
-      this.size = isMobile() ? 120 : 200;
-      this.el.style.width = this.size + 'px';
-      this.el.style.height = (this.size * 1.3) + 'px';
+      // Para garantir que o elemento esteja na DOM para pegar offsetWidth/Height
+      this.el.style.visibility = 'hidden';
+      this.el.style.left = '0px';
+      this.el.style.top = '0px';
 
-      this.x = Math.random() * (width - this.size);
-      this.y = Math.random() * (height - this.size * 1.3);
-      this.speedX = (Math.random() * 0.4 + 0.1) * (Math.random() < 0.5 ? -1 : 1);
-      this.speedY = (Math.random() * 0.3 + 0.05) * (Math.random() < 0.5 ? -1 : 1);
-      this.rotation = Math.random() * 360;
-      this.rotationSpeed = (Math.random() * 0.1 + 0.02) * (Math.random() < 0.5 ? -1 : 1);
+      // Após renderizar, pega as dimensões
+      requestAnimationFrame(() => {
+        const maxX = width - this.el.offsetWidth;
+        const maxY = height - this.el.offsetHeight;
 
-      this.update = () => {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.rotation += this.rotationSpeed;
-
-        if(this.x < 0 || this.x > width - this.size) this.speedX *= -1;
-        if(this.y < 0 || this.y > height - this.size * 1.3) this.speedY *= -1;
+        this.x = randomRange(50, maxX > 50 ? maxX : 50);
+        this.y = randomRange(50, maxY > 50 ? maxY : 50);
 
         this.el.style.left = this.x + 'px';
         this.el.style.top = this.y + 'px';
-        this.el.style.transform = `rotate(${this.rotation}deg)`;
-      };
+        this.el.style.visibility = 'visible';
+      });
 
-      document.body.appendChild(this.el);
+      this.angle = 0; // rotação Y
+      this.rotationSpeed = 0.3 + Math.random() * 0.7; // graus por frame
+
+      this.moveAngle = Math.random() * Math.PI * 2; // direção do movimento
+      this.moveSpeed = 0.5 + Math.random(); // pixels por frame
+    }
+    update() {
+      this.angle += this.rotationSpeed;
+      if(this.angle > 360) this.angle -= 360;
+
+      this.moveAngle += 0.01;
+
+      this.x += Math.cos(this.moveAngle) * this.moveSpeed;
+      this.y += Math.sin(this.moveAngle) * this.moveSpeed;
+
+      const maxX = width - this.el.offsetWidth;
+      const maxY = height - this.el.offsetHeight;
+
+      if(this.x < 0 || this.x > maxX) this.moveSpeed = -this.moveSpeed;
+      if(this.y < 0 || this.y > maxY) this.moveSpeed = -this.moveSpeed;
+
+      this.el.style.left = this.x + 'px';
+      this.el.style.top = this.y + 'px';
+      this.el.style.transform = `rotateY(${this.angle}deg)`;
     }
     remove() {
       this.el.remove();
@@ -388,14 +394,12 @@
 
     musica.play();
     animateStars();
+    complimentsInterval = setInterval(createCompliment, 3000);
 
-    const intervalTime = isMobile() ? 5000 : 3000;
-    complimentsInterval = setInterval(createCompliment, intervalTime);
-
-    const photoCount = isMobile() ? 2 : photos.length;
-    for(let i=0; i<photoCount; i++) {
-      floatingPhotos.push(new FloatingRotatingPhoto(photos[i]));
-    }
+    photos.forEach(src => {
+      const photo = new FloatingRotatingPhoto(src);
+      floatingPhotos.push(photo);
+    });
 
     function update() {
       if(!animationActive) return;
@@ -407,12 +411,13 @@
     startScreen.style.display = 'none';
   }
 
-  let complimentsInterval;
-
   startScreen.addEventListener('click', () => {
-    startAnimation();
+    if(!animationActive) {
+      startAnimation();
+    }
   });
 </script>
 
 </body>
 </html>
+
