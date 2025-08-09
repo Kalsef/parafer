@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fotos Dinâmicas com Elogios</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
+
+<style>
+  body, html {
+    margin: 0; padding: 0; height: 100%;
+    overflow: hidden;
+    font-family: 'Itim', cursive, sans-serif;
+    background: #000;
+    color: #fff;
+    perspective: 900px;
+  }
+  #backgroundNebulosa {
+    position: fixed;
+    top: 50%; left: 50%;
+    width: 120vw; height: 120vh;
+    background: url('https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80') no-repeat center center;
+    background-size: cover;
+    transform: translate(-50%, -50%) scale(1);
+    animation: zoomNebulosa 40s ease-in-out infinite;
+    z-index: -2;
+  }
+  @keyframes zoomNebulosa {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.1); }
+  }
+  canvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+  #start-screen {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15, 52, 96, 0.7);
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 3rem;
+    user-select: none;
+    text-align: center;
+    z-index: 10;
+    color: #d0e6ff;
+    font-weight: 600;
+    box-shadow:
+      0 0 10px rgba(15, 52, 96, 0.7),
+      inset 0 0 15px rgba(255, 255, 255, 0.15);
+    letter-spacing: 1px;
+    padding: 1rem 2rem;
+    transition: box-shadow 0.3s ease, background-color 0.3s ease;
+  }
+  #start-screen:hover {
+    box-shadow:
+      0 0 25px rgba(0, 160, 255, 0.8),
+      inset 0 0 25px rgba(255, 255, 255, 0.25);
+    background: rgba(10, 30, 70, 0.9);
+  }
+  .floating-compliment {
+    position: fixed;
+    white-space: nowrap;
+    pointer-events: none;
+    font-size: 4rem;
+    font-weight: 700;
+    color: #ff66cc;
+    opacity: 0;
+    user-select: none;
+    text-shadow:
+      0 0 12px #ff66cc,
+      0 0 20px #ff3399;
+    transform-style: preserve-3d;
+    will-change: transform, opacity, left, top;
+    mix-blend-mode: screen;
+  }
+  .rotating-photo {
+    position: fixed;
+    width: 200px;
+    height: 260px;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow:
+      0 0 30px rgba(0, 200, 255, 0.7),
+      inset 0 0 20px rgba(0, 100, 180, 0.6);
+    background: #111;
+    will-change: transform, left, top;
+    cursor: default;
+  }
+  .rotating-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 18px;
+    display: block;
+  }
+
+  /* Responsividade */
+  @media (max-width: 768px) {
+    .floating-compliment {
+      font-size: 2.5rem;
+    }
+    .rotating-photo {
+      width: 140px;
+      height: 182px;
+      border-radius: 12px;
+      box-shadow:
+        0 0 20px rgba(0, 200, 255, 0.5),
+        inset 0 0 12px rgba(0, 100, 180, 0.4);
+    }
+    #start-screen {
+      font-size: 2rem;
+      padding: 0.8rem 1.5rem;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .floating-compliment {
+      font-size: 1.8rem;
+    }
+    .rotating-photo {
+      width: 110px;
+      height: 143px;
+      border-radius: 10px;
+      box-shadow:
+        0 0 15px rgba(0, 200, 255, 0.4),
+        inset 0 0 8px rgba(0, 100, 180, 0.3);
+    }
+    #start-screen {
+      font-size: 1.5rem;
+      padding: 0.6rem 1rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="start-screen">?</div>
+
+<canvas id="stars"></canvas>
+<div id="backgroundNebulosa"></div>
+
+<audio id="musica" src="https://cdn.pixabay.com/download/audio/2022/03/22/audio_4ff7a0af21.mp3?filename=romantic-piano-11078.mp3" preload="auto"></audio>
+
+<script>
+  const startScreen = document.getElementById('start-screen');
+  const canvas = document.getElementById('stars');
+  const ctx = canvas.getContext('2d');
+  const musica = document.getElementById('musica');
+  const bg = document.getElementById('backgroundNebulosa');
+  let width, height;
+  let animationActive = false;
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
+  window.addEventListener('resize', () => {
+    resize();
+    createStars();
+  });
+  resize();
+
+  class Star {
+    constructor(x, y, radius, alpha, alphaSpeed, isBig) {
+      this.x = x;
+      this.y = y;
+      this.radius = radius;
+      this.alpha = alpha;
+      this.alphaSpeed = alphaSpeed;
+      this.isBig = isBig;
+      this.alphaDir = 1;
+    }
+    update() {
+      if(this.isBig) {
+        this.alpha += this.alphaSpeed * this.alphaDir;
+        if(this.alpha >= 1) this.alphaDir = -1;
+        if(this.alpha <= 0.3) this.alphaDir = 1;
+      }
+    }
+    draw(ctx) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${this.alpha})`;
+      ctx.shadowColor = `rgba(255,255,255,${this.alpha})`;
+      ctx.shadowBlur = this.isBig ? 6 : 0;
+      ctx.fill();
+    }
+  }
+
+  const stars = [];
+  const bigStars = [];
+
+  function createStars() {
+    stars.length = 0;
+    bigStars.length = 0;
+
+    for(let i=0; i<150; i++) {
+      stars.push(new Star(
+        Math.random() * width,
+        Math.random() * height,
+        Math.random() * 1.2,
+        0.1 + Math.random() * 0.3,
+        0,
+        false
+      ));
+    }
+    for(let i=0; i<30; i++) {
+      bigStars.push(new Star(
+        Math.random() * width,
+        Math.random() * height,
+        1.5 + Math.random() * 2,
+        0.3 + Math.random() * 0.5,
+        0.006 + Math.random() * 0.006,
+        true
+      ));
+    }
+  }
+  createStars();
+
+  function animateStars() {
+    if(!animationActive) return;
+    ctx.clearRect(0, 0, width, height);
+    stars.forEach(s => s.draw(ctx));
+    bigStars.forEach(s => {
+      s.update();
+      s.draw(ctx);
+    });
+    requestAnimationFrame(animateStars);
+  }
+
+  const compliments = [
+    "Você é simplesmente irresistível!",
+    "Essa beleza aí me deixa louco de paixão.",
+    "Sua sensualidade é de tirar o fôlego!",
+    "Meu coração dispara só de pensar em você.",
+    "Você é a tentação que não consigo resistir.",
+    "Seus olhos brilham mais que qualquer estrela.",
+    "Quero provar cada pedacinho seu, minha deusa.",
+    "Você me enlouquece de um jeito delicioso.",
+    "Toda vez que te vejo, sinto fogo por dentro.",
+    "Você é o meu desejo mais ardente e verdadeiro."
+  ];
+
+  function randomRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  function createCompliment() {
+    if(!animationActive) return;
+
+    const text = compliments[Math.floor(Math.random() * compliments.length)];
+    const el = document.createElement('div');
+    el.className = 'floating-compliment';
+    el.textContent = text;
+
+    const side = Math.floor(Math.random() * 4);
+    let startX, startY;
+
+    switch(side) {
+      case 0:
+        startX = randomRange(50, width - 300);
+        startY = -50;
+        break;
+      case 1:
+        startX = width + 300;
+        startY = randomRange(50, height - 100);
+        break;
+      case 2:
+        startX = randomRange(50, width - 300);
+        startY = height + 50;
+        break;
+      case 3:
+        startX = -300;
+        startY = randomRange(50, height - 100);
+        break;
+    }
+
+    el.style.left = startX + 'px';
+    el.style.top = startY + 'px';
+    el.style.opacity = 0;
+    el.style.transform = `translateZ(0) rotateX(0deg) rotateY(0deg) scale(0.5)`;
+    document.body.appendChild(el);
+
+    const endX = randomRange(100, width - 300);
+    const endY = randomRange(100, height - 150);
+
+    let startTime = null;
+    const duration = 7000 + Math.random() * 3000;
+
+    function animateCompliment(time) {
+      if(!startTime) startTime = time;
+      const elapsed = time - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      const currentX = startX + (endX - startX) * progress;
+      const currentY = startY + (endY - startY) * progress;
+
+      const scale = 0.5 + 0.8 * progress;
+      const rotX = 15 * Math.sin(progress * Math.PI * 2);
+      const rotY = 20 * Math.cos(progress * Math.PI * 2);
+
+      el.style.left = currentX + 'px';
+      el.style.top = currentY + 'px';
+      el.style.opacity = progress < 0.5 ? progress * 2 : 2 - progress * 2;
+      el.style.transform = `translateZ(0) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${scale})`;
+
+      if(progress < 1) {
+        requestAnimationFrame(animateCompliment);
+      } else {
+        el.remove();
+      }
+    }
+    requestAnimationFrame(animateCompliment);
+  }
+
+  let complimentsInterval;
+
+  // Fotos para rotacionar e flutuar
+  const photos = [
+    "ft 1.jpeg",
+    "ft 2.jpeg",
+    "ft 3.jpeg",
+    "ft 4.jpeg"
+  ];
+
+  class FloatingRotatingPhoto {
+    constructor(src) {
+      this.el = document.createElement('div');
+      this.el.className = 'rotating-photo';
+      this.img = document.createElement('img');
+      this.img.src = src;
+      this.el.appendChild(this.img);
+      document.body.appendChild(this.el);
+
+      // Para garantir que o elemento esteja na DOM para pegar offsetWidth/Height
+      this.el.style.visibility = 'hidden';
+      this.el.style.left = '0px';
+      this.el.style.top = '0px';
+
+      // Após renderizar, pega as dimensões
+      requestAnimationFrame(() => {
+        const maxX = width - this.el.offsetWidth;
+        const maxY = height - this.el.offsetHeight;
+
+        this.x = randomRange(50, maxX > 50 ? maxX : 50);
+        this.y = randomRange(50, maxY > 50 ? maxY : 50);
+
+        this.el.style.left = this.x + 'px';
+        this.el.style.top = this.y + 'px';
+        this.el.style.visibility = 'visible';
+      });
+
+      this.angle = 0; // rotação Y
+      this.rotationSpeed = 0.3 + Math.random() * 0.7; // graus por frame
+
+      this.moveAngle = Math.random() * Math.PI * 2; // direção do movimento
+      this.moveSpeed = 0.5 + Math.random(); // pixels por frame
+    }
+    update() {
+      this.angle += this.rotationSpeed;
+      if(this.angle > 360) this.angle -= 360;
+
+      this.moveAngle += 0.01;
+
+      this.x += Math.cos(this.moveAngle) * this.moveSpeed;
+      this.y += Math.sin(this.moveAngle) * this.moveSpeed;
+
+      const maxX = width - this.el.offsetWidth;
+      const maxY = height - this.el.offsetHeight;
+
+      if(this.x < 0 || this.x > maxX) this.moveSpeed = -this.moveSpeed;
+      if(this.y < 0 || this.y > maxY) this.moveSpeed = -this.moveSpeed;
+
+      this.el.style.left = this.x + 'px';
+      this.el.style.top = this.y + 'px';
+      this.el.style.transform = `rotateY(${this.angle}deg)`;
+    }
+    remove() {
+      this.el.remove();
+    }
+  }
+
+  const floatingPhotos = [];
+
+  function startAnimation() {
+    animationActive = true;
+
+    musica.play();
+    animateStars();
+    complimentsInterval = setInterval(createCompliment, 3000);
+
+    photos.forEach(src => {
+      const photo = new FloatingRotatingPhoto(src);
+      floatingPhotos.push(photo);
+    });
+
+    function update() {
+      if(!animationActive) return;
+      floatingPhotos.forEach(photo => photo.update());
+      requestAnimationFrame(update);
+    }
+    update();
+
+    startScreen.style.display = 'none';
+  }
+
+  startScreen.addEventListener('click', () => {
+    if(!animationActive) {
+      startAnimation();
+    }
+  });
+</script>
+
+</body>
+</html>
